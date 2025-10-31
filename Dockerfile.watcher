@@ -1,0 +1,14 @@
+FROM python:3.9-alpine
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY watcher.py .
+
+# Only create the directory structure
+# The actual log file will come from the nginx container via volume
+RUN mkdir -p /var/log/nginx
+
+CMD ["python", "watcher.py"]

@@ -1,0 +1,51 @@
+services:
+  nginx:
+    image: nginx:1.24-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro
+      - ./entrypoint.sh:/entrypoint.sh
+      - nginx_logs:/var/log/nginx
+    environment:
+      - ACTIVE_POOL=${ACTIVE_POOL}
+    command: sh -c "chmod +x /entrypoint.sh && /entrypoint.sh"
+    depends_on:
+      - app_blue
+      - app_green
+
+  app_blue:
+    image: ${BLUE_IMAGE}
+    ports:
+      - "8081:3000"
+    environment:
+      - RELEASE_ID=${RELEASE_ID_BLUE}
+      - APP_POOL=blue
+
+  app_green:
+    image: ${GREEN_IMAGE}
+    ports:
+      - "8082:3000"
+    environment:
+      - RELEASE_ID=${RELEASE_ID_GREEN}
+      - APP_POOL=green
+
+  alert_watcher:
+    image: alert-watcher:latest
+    build: 
+      context: .
+      dockerfile: Dockerfile.watcher
+    volumes:
+      - nginx_logs:/var/log/nginx
+    environment:
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - ERROR_RATE_THRESHOLD=${ERROR_RATE_THRESHOLD:-2}
+      - WINDOW_SIZE=${WINDOW_SIZE:-200}
+      - ALERT_COOLDOWN_SEC=${ALERT_COOLDOWN_SEC:-300}
+      - MAINTENANCE_MODE=${MAINTENANCE_MODE:-false}
+    depends_on:
+      - nginx
+    restart: unless-stopped
+
+volumes:
+  nginx_logs:
